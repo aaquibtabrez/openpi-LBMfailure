@@ -27,6 +27,8 @@ import openpi.training.misc.roboarena_config as roboarena_config
 import openpi.training.optimizer as _optimizer
 import openpi.training.weight_loaders as weight_loaders
 import openpi.transforms as _transforms
+import openpi.policies.gen3_policy as gen3_policy
+
 
 ModelType: TypeAlias = _model.ModelType
 # Work around a tyro issue with using nnx.filterlib.Filter directly.
@@ -451,6 +453,36 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
             data_transforms=data_transforms,
             model_transforms=model_transforms,
         )
+
+@dataclasses.dataclass(frozen=True)
+class RLDSGen3DataConfig(DataConfigFactory):
+    rlds_data_dir: str | None = None
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        repack = _transforms.Group(inputs=[
+            _transforms.RepackTransform({
+                "observation/image": "image",
+                "observation/wrist_image": "wrist_image",
+                "observation/state": "state",
+                "actions": "actions",
+                "language_instruction": "prompt",
+            })
+        ])
+        data_tfms = _transforms.Group(
+            inputs=[gen3_policy.Gen3Inputs(model_type=model_config.model_type)],
+            outputs=[gen3_policy.Gen3Outputs()],
+        )
+        model_tfms = ModelTransformFactory()(model_config)
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack,
+            data_transforms=data_tfms,
+            model_transforms=model_tfms,
+            use_quantile_norm=False,
+            rlds_data_dir=self.rlds_data_dir,
+        )
+
 
 
 @dataclasses.dataclass(frozen=True)
@@ -959,6 +991,45 @@ _CONFIGS = [
     #
     # RoboArena configs.
     #
+        #
+    # Fine-tuning Gen3 RLDS
+    #
+    TrainConfig(
+        name="pi05_gen3_rlds_lora",
+        project_name="openpi_gen3_lbm",        # WandB project
+        exp_name="gen3_pnp_5k",            # run name
+        model=pi0_config.Pi0Config(
+            action_dim=8,
+            action_horizon=16,
+            paligemma_variant="gemma_2b_lora",
+            action_expert_variant="gemma_300m_lora",
+        ),
+        data=RLDSGen3DataConfig(
+            repo_id="example_dataset",
+            rlds_data_dir="/data",          # parent dir of example_dataset/
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi0_base/params"
+        ),
+        num_train_steps=5_000,
+        batch_size=192,
+        log_interval=50,
+        save_interval=1_000,
+        keep_period=5_000,
+        num_workers=0,
+        ema_decay=None,
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=200, peak_lr=3e-5, decay_steps=5_000, decay_lr=3e-5,
+        ),
+        freeze_filter=pi0_config.Pi0Config(
+            action_dim=8,
+            action_horizon=16,
+            paligemma_variant="gemma_2b_lora",
+            action_expert_variant="gemma_300m_lora",
+        ).get_freeze_filter(),
+        wandb_enabled=True,
+        seed=42,
+    ),
     *roboarena_config.get_roboarena_configs(),
 ]
 
