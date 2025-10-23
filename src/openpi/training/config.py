@@ -457,6 +457,7 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
 @dataclasses.dataclass(frozen=True)
 class RLDSGen3DataConfig(DataConfigFactory):
     rlds_data_dir: str | None = None
+    action_space: droid_rlds_dataset.DroidActionSpace | None = None
 
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
@@ -473,7 +474,19 @@ class RLDSGen3DataConfig(DataConfigFactory):
             inputs=[gen3_policy.Gen3Inputs(model_type=model_config.model_type)],
             outputs=[gen3_policy.Gen3Outputs()],
         )
+
+        if self.action_space == droid_rlds_dataset.DroidActionSpace.JOINT_POSITION:
+            # Data loader returns absolute joint position actions -- convert to delta actions for training.
+            delta_action_mask = _transforms.make_bool_mask(7, -1)
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
         model_tfms = ModelTransformFactory()(model_config)
+
+        assert self.rlds_data_dir is not None, "Need to set rlds data dir for RLDS data loader."
+
         return dataclasses.replace(
             self.create_base_config(assets_dirs, model_config),
             repack_transforms=repack,
@@ -1009,7 +1022,7 @@ _CONFIGS = [
             rlds_data_dir="/data",          # parent dir of example_dataset/
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "gs://openpi-assets/checkpoints/pi0_base/params"
+            "gs://openpi-assets/checkpoints/pi05_base"
         ),
         num_train_steps=5_000,
         batch_size=192,
