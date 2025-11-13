@@ -446,7 +446,11 @@ class PiZeroOpenPIClient(Node):
 
             # integrate joints
             q_next = (np.array(q_curr) + dq * self.dt).astype(np.float64)
-            q_next = wrap_to_pi(q_next)
+
+
+            #SANITIZATION CHANGE
+            #q_next = wrap_to_pi(q_next)
+            
             # sanitize shortest path from q_curr to q_next (belt & suspenders)
             q_next = np.array(self._sanitize_segment(q_curr, q_next.tolist()), dtype=np.float64)
 
@@ -485,7 +489,8 @@ class PiZeroOpenPIClient(Node):
         traj.joint_names = arm_joint_names
         for q, tfs in zip(q_points, tfs_list):
             pt = JointTrajectoryPoint()
-            pt.positions = wrap_to_pi(np.array(q)).tolist()
+            #pt.positions = wrap_to_pi(np.array(q)).tolist()
+            pt.positions = q
             print(pt.positions)
             
             #print(self.latest_chunk)
