@@ -12,8 +12,18 @@ States:
   joint_position:   absolute 7-D (arm only)
   gripper_position: absolute 1-D
 
-Actions:
-  velocities (dq/dt for 7 joints + dg/dt for gripper)  -> shape (8,)
+Actions (for Pi0-style training):
+  - joints:   either velocities (dq/dt) or deltas (q[t+1] - q[t])  -> 7 dims
+  - gripper:  absolute gripper position                           -> 1 dim
+  => actions shape: (8,)
+
+Optional episode truncation:
+  - If --cut-gripper-threshold is set (e.g. 0.6), each bag/episode is cut
+    at the first frame where gripper_position >= threshold.
+  - Then we append --cut-extra-frames copies of that final frame with
+    zero joint actions and constant gripper position (robot "frozen").
+    This is useful to train "fail-on-purpose" behaviors where the robot
+    stops closing the gripper just before fully closed.
 
 Writes a simple LeRobot HF dataset via `LeRobotDataset`:
   - dataset.add_frame({...}) per frame
@@ -22,26 +32,32 @@ Writes a simple LeRobot HF dataset via `LeRobotDataset`:
 
 Examples:
   # Uncompressed topics
-  python3 rosbag2_to_lerobot_droid.py \
-    --input-root test_bags \
-    --repo-id mydatasets/kinova_sort \
+  python3 rosbag2_to_lerobot_with_failure.py \
+    --input-root data_collection_blue_cup_blue_bin_reordered \
+    --repo-id lerobot_gen3_blue_cup_blue_bin_failure \
     --camera-topic-base  /camera1/camera1/color/image_raw \
     --camera-topic-wrist /camera2/camera2/color/image_raw \
     --joint-topic /joint_states \
     --gripper-name robotiq_85_left_knuckle_joint \
-    --fps 20 --prompt "sort trash by category" \
-    -- joint-action-type velocity
+    --fps 20 \
+    --joint-action-type velocity \
+    --cut-gripper-threshold 0.5 \
+    --cut-extra-frames 20 \
+    --prompt "pick but stop before grasping"
 
   # Compressed topics
-  python3 rosbag2_to_lerobot_droid.py \
+  python3 rosbag2_to_lerobot_with_failure.py \
     --input-root data_collection_blue_cup_blue_bin_reordered \
-    --repo-id mydatasets/kinova_sort \
+    --repo-id lerobot_gen3_blue_cup_blue_bin_failure \
     --camera-topic-base  /camera1/camera1/color/image_raw/compressed \
     --camera-topic-wrist /camera2/camera2/color/image_raw/compressed \
     --joint-topic /joint_states \
     --gripper-name robotiq_85_left_knuckle_joint \
-    --fps 10 --compressed --prompt "pick up the cup and place it in the blue bin"
-    -- joint-action-type velocity
+    --fps 20 --compressed \
+    --joint-action-type velocity \
+    --cut-gripper-threshold 0.5 \
+    --cut-extra-frames 20 \
+    --prompt "pick but stop before grasping"
 """
 
 import io
@@ -60,6 +76,7 @@ from PIL import Image
 
 # LeRobot helpers (you’re using the "common" layout; keep it)
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, HF_LEROBOT_HOME
+
 
 # ---------------------------
 # Utilities
@@ -135,7 +152,6 @@ def to_rgb_from_compressed_msg(msg) -> np.ndarray:
     return arr
 
 
-
 def resize_image_uint8_rgb(img: np.ndarray, size: Tuple[int, int]) -> np.ndarray:
     """
     Resize HxWx3 uint8 RGB to (W,H)=size using PIL bicubic. `size` is (width, height).
@@ -145,14 +161,22 @@ def resize_image_uint8_rgb(img: np.ndarray, size: Tuple[int, int]) -> np.ndarray
 
 
 def finite_diff(vals: np.ndarray, dt: float, as_velocity: bool = True) -> np.ndarray:
-    """Compute forward finite differences (velocities) or delta joint angles from absolute values; pad last row."""
+    """
+    Compute forward finite differences from absolute values.
+
+    If as_velocity=True:  (vals[t+1] - vals[t]) / dt
+    If as_velocity=False:  vals[t+1] - vals[t]      (plain delta)
+
+    Last row is padded with the previous diff to keep length.
+    """
     if len(vals) < 2:
         return np.zeros_like(vals)
-    dv = (vals[1:] - vals[:-1])
+    dv = vals[1:] - vals[:-1]
     if as_velocity:
-    	dv = dv/dt
+        dv = dv / dt
     dv = np.vstack([dv, dv[-1:]])  # keep same length as input
     return dv
+
 
 # ---------------------------
 # Bag reading & alignment
@@ -282,6 +306,7 @@ def split_and_validate_joint_arrays(
     g1 = np.array(g_list, dtype=np.float32) if g_list else np.empty((0,), np.float32)
     return t_ns, q7, g1, arm_names
 
+
 # ---------------------------
 # Conversion: bag -> LeRobot (ONE episode per bag)
 # ---------------------------
@@ -297,11 +322,14 @@ def convert_bag_to_lerobot_episode(
     prompt: str | None,
     dataset: LeRobotDataset,
     compressed: bool,
-    joint_action_type: str = "velocity",
+    joint_action_type: str = "velocity",   # "velocity" or "delta" for joints
+    cut_gripper_threshold: float | None = None,  # if set, cut episode when gripper >= this
+    cut_extra_frames: int = 20,                  # number of frozen frames to append after cutoff
 ):
     """
     Convert a single bag into EXACTLY ONE LeRobot episode:
       - resample entire bag to `fps`
+      - optionally truncate when gripper_position exceeds a threshold and append frozen frames
       - write every frame with `dataset.add_frame(...)`
       - close the episode once with `dataset.save_episode()`
       - choose raw vs compressed decoding based on `compressed`
@@ -349,8 +377,8 @@ def convert_bag_to_lerobot_episode(
             out[:, d] = np.interp(ts_tgt, ts_src, vals_src[:, d])
         return out
 
-    q7_on = interp_vec(t_j/1e9, q7, grid)
-    g1_on = np.interp(grid, t_j/1e9, g1).astype(np.float32)
+    q7_on = interp_vec(t_j/1e9, q7, grid)  # (T,7) absolute
+    g1_on = np.interp(grid, t_j/1e9, g1).astype(np.float32)  # (T,) absolute
 
     # Nearest images per grid tick (fill zeros if missing)
     def nearest_images(t_src, frames_src, t_tgt, default_shape=(224, 224, 3)):
@@ -376,14 +404,55 @@ def convert_bag_to_lerobot_episode(
     base_on  = [resize_image_uint8_rgb(img, (W, H)) for img in base_on_raw]
     wrist_on = [resize_image_uint8_rgb(img, (W, H)) for img in wrist_on_raw]
 
-    # Actions = velocities from absolute series
-    dq = finite_diff(q7_on, dt, as_velocity=(joint_action_type == "velocity"))                            # (T,7)
-    #dg = finite_diff(g1_on.reshape(-1, 1), dt)[:, 0]       # (T,)
-    g_abs = g1_on.astype(np.float32)
-    actions = np.concatenate([dq, g_abs[:, None]], axis=1).astype(np.float32)  # (T,8)
+    # ----------------------------------------
+    # Optional: cut episode when gripper exceeds threshold and pad with frozen frames.
+    # ----------------------------------------
+    if cut_gripper_threshold is not None:
+        idx_over = np.nonzero(g1_on >= cut_gripper_threshold)[0]
+        if len(idx_over) > 0:
+            cut_idx = int(idx_over[0])  # first time gripper >= threshold
+            # Snapshot the final state at cutoff
+            last_q = q7_on[cut_idx].copy()
+            last_g = float(g1_on[cut_idx])
+            last_base = base_on[cut_idx]
+            last_wrist = wrist_on[cut_idx]
+
+            # Trim sequences up to and including cut_idx
+            q7_on = q7_on[:cut_idx + 1]
+            g1_on = g1_on[:cut_idx + 1]
+            base_on = base_on[:cut_idx + 1]
+            wrist_on = wrist_on[:cut_idx + 1]
+
+            # Append extra frozen frames: same obs/state, no motion
+            for _ in range(cut_extra_frames):
+                q7_on = np.vstack([q7_on, last_q[None, :]])
+                g1_on = np.concatenate([g1_on, np.array([last_g], dtype=np.float32)])
+                base_on.append(last_base)
+                wrist_on.append(last_wrist)
+
+    # ----------------------------------------
+    # Actions:
+    # - joints: velocity (dq/dt) or delta (q[t+1]-q[t]) based on joint_action_type
+    # - gripper: ALWAYS absolute position (Pi0-style)
+    # ----------------------------------------
+    dq = finite_diff(
+        q7_on,
+        dt,
+        as_velocity=(joint_action_type == "velocity"),
+    )  # (T,7)
+
+    g_abs = g1_on.astype(np.float32)  # (T,)
+
+    actions = np.concatenate(
+        [dq, g_abs[:, None]],
+        axis=1,
+    ).astype(np.float32)  # (T,8)
 
     # ---- ONE EPISODE FOR THE ENTIRE BAG ----
-    for t in range(len(grid)):
+    T = len(g_abs)
+    assert len(base_on) == T and len(wrist_on) == T and q7_on.shape[0] == T and actions.shape[0] == T
+
+    for t in range(T):
         dataset.add_frame({
             # two cameras (DROID-style keys; OpenPI repacks internally)
             "exterior_image_1_left": base_on[t],
@@ -391,9 +460,9 @@ def convert_bag_to_lerobot_episode(
 
             # absolute state
             "joint_position":   q7_on[t].astype(np.float32),
-            "gripper_position": np.array([g1_on[t]], dtype=np.float32),
+            "gripper_position": np.array([g_abs[t]], dtype=np.float32),
 
-            # velocity actions
+            # actions: joints = vel/delta, gripper = absolute
             "actions": actions[t],
 
             # language task (string)
@@ -401,6 +470,7 @@ def convert_bag_to_lerobot_episode(
         })
 
     dataset.save_episode()
+
 
 # ---------------------------
 # Main
@@ -422,9 +492,32 @@ def main():
     ap.add_argument("--prompt", default=None, help="Optional language instruction per episode.")
     ap.add_argument("--compressed", action="store_true",
                     help="If set, read sensor_msgs/msg/CompressedImage and decode JPEG bytes.")
-    ap.add_argument("--joint-action-type", choices =["velocity", "delta"], default = "velocity", 
-    		    help="how to derive joint actions from absolute positions: velocity or delta. Gripper position is always absolute")
-                  
+
+    # NEW: joint action representation
+    ap.add_argument(
+        "--joint-action-type",
+        choices=["velocity", "delta"],
+        default="velocity",
+        help="How to derive joint actions from absolute positions: "
+             "'velocity' = dq/dt, 'delta' = q[t+1]-q[t]. Gripper action is always absolute.",
+    )
+
+    # NEW: episode cutoff based on gripper position
+    ap.add_argument(
+        "--cut-gripper-threshold",
+        type=float,
+        default=None,
+        help="If set, truncate each episode at the first frame where absolute gripper_position "
+             ">= this value, then append --cut-extra-frames frozen frames. "
+             "If omitted, no truncation is applied.",
+    )
+    ap.add_argument(
+        "--cut-extra-frames",
+        type=int,
+        default=20,
+        help="Number of additional frozen frames to append after gripper threshold cutoff.",
+    )
+
     args = ap.parse_args()
 
     bags = find_bag_dirs(args.input_root)
@@ -494,6 +587,8 @@ def main():
             dataset=dataset,
             compressed=args.compressed,
             joint_action_type=args.joint_action_type,
+            cut_gripper_threshold=args.cut_gripper_threshold,
+            cut_extra_frames=args.cut_extra_frames,
         )
 
     print(f"✅ Saved LeRobot dataset to: {output_path}")

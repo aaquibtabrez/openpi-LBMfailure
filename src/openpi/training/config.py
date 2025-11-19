@@ -362,7 +362,7 @@ class Gen3LiberoDataConfig(DataConfigFactory):
     comments below.
     """
 
-    extra_delta_transform: bool = True
+    extra_delta_transform: bool = False
 
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
@@ -413,12 +413,12 @@ class Gen3LiberoDataConfig(DataConfigFactory):
         # LIBERO already represents actions as deltas, but we have some old Pi0 checkpoints that are trained with this
         # Aaquib: Our gen3 data is absolute, so we need to apply this
         # extra delta transform.
-        if self.extra_delta_transform:
-            delta_action_mask = _transforms.make_bool_mask(7, -1)
-            data_transforms = data_transforms.push(
-                inputs=[_transforms.DeltaActions(delta_action_mask)],
-                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
-            )
+        # if self.extra_delta_transform:
+        #     delta_action_mask = _transforms.make_bool_mask(7, -1)
+        #     data_transforms = data_transforms.push(
+        #         inputs=[_transforms.DeltaActions(delta_action_mask)],
+        #         outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+        #     )
 
         # Model transforms include things like tokenizing the prompt and action targets
         # You do not need to change anything here for your own dataset.
@@ -774,13 +774,15 @@ _CONFIGS = [
         #Check again: discrete_state_input=False input is needed?
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=Gen3LiberoDataConfig(
-            repo_id="Trontour/test2",
+            repo_id="Trontour/lerobot_gen3_blue_cup_blue_bin",
+            # repo_id="Trontour/lerobot_gen3_deploy_test",
             base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
-                asset_id="Trontour/test2",
+                asset_id="Trontour/lerobot_gen3_blue_cup_blue_bin",
+                # asset_id="Trontour/lerobot_gen3_deploy_test",
             ),
-            extra_delta_transform=True,
+            extra_delta_transform=False,
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         # The freeze filter defines which parameters should be frozen during training.
@@ -790,12 +792,12 @@ _CONFIGS = [
         freeze_filter=pi0_config.Pi0Config(
             paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
         ).get_freeze_filter(),
-        num_train_steps=5_000,
+        num_train_steps=30_000,
         
         #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
         
         # save_interval=1_000,              # saves every 1k steps
-        # keep_period=5_000,                # keeps step 5000, 10000, etc.
+        keep_period=10_000,                # keeps step 5000, 10000, etc.
         # checkpoint_base_dir="./checkpoints",
         # overwrite=False,
         # resume=True,                     # resume if interrupted
