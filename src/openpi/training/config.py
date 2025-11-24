@@ -774,13 +774,13 @@ _CONFIGS = [
         #Check again: discrete_state_input=False input is needed?
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=Gen3LiberoDataConfig(
-            repo_id="Trontour/lerobot_gen3_blue_cup_blue_bin",
-            # repo_id="Trontour/lerobot_gen3_deploy_test",
+            repo_id="Trontour/lerobot_gen3_blue_cup_blue_bin_success",
+            # repo_id="Trontour/lerobot_gen3_blue_bin_blue_cup_failure",
             base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
-                asset_id="Trontour/lerobot_gen3_blue_cup_blue_bin",
-                # asset_id="Trontour/lerobot_gen3_deploy_test",
+                asset_id="Trontour/lerobot_gen3_blue_cup_blue_bin_success",
+                # asset_id="Trontour/lerobot_gen3_blue_cup_blue_bin",
             ),
             extra_delta_transform=False,
         ),
@@ -797,7 +797,7 @@ _CONFIGS = [
         #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
         
         # save_interval=1_000,              # saves every 1k steps
-        keep_period=10_000,                # keeps step 5000, 10000, etc.
+        keep_period=5_000,                # keeps step 5000, 10000, etc.
         # checkpoint_base_dir="./checkpoints",
         # overwrite=False,
         # resume=True,                     # resume if interrupted
