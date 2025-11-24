@@ -150,14 +150,23 @@ We provide example fine-tuning configs for [π₀](src/openpi/training/config.py
 
 Before we can run training, we need to compute the normalization statistics for the training data. Run the script below with the name of your training config:
 
-```bash
+<!-- ```bash
 uv run scripts/compute_norm_stats.py --config-name pi05_libero
+``` -->
+
+```bash
+uv run scripts/compute_norm_stats.py --config-name pi0_gen3_pickupcup_low_mem_finetune
 ```
 
 Now we can kick off training with the following command (the `--overwrite` flag is used to overwrite existing checkpoints if you rerun fine-tuning with the same config):
 
-```bash
+<!-- ```bash
 XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi05_libero --exp-name=my_experiment --overwrite
+``` -->
+
+```bash
+XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi0_gen3_pickupcup_low_mem_finetune --exp-name=my_experiment --resume
+
 ```
 
 The command will log training progress to the console and save checkpoints to the `checkpoints` directory. You can also monitor training progress on the Weights & Biases dashboard. For maximally using the GPU memory, set `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9` before running training -- this enables JAX to use up to 90% of the GPU memory (vs. the default of 75%).
