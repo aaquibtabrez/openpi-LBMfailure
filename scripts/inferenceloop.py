@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""
+"""3913] [joy_node]: Opened joystick: Xbox Series X Controller.  deadzone: 0.300000
+
 PiZero / OpenPI ROS 2 client with double-buffer action chunks and optional trajectory execution.
 
 Modes:
@@ -20,7 +21,13 @@ Assumptions:
 Swap strategy:
  - Prefetch next chunk when remaining <= --prefetch-remaining (default 5).
  - Swap as soon as a prefetched chunk is ready AND we've executed at least --min-exec-steps from the current chunk.
-"""
+
+ Usage Example:
+ python3 inferenceloop.py --host 128.253.224.8 --port 8000 \
+ --cmd-mode trajectory --compressed --control-hz 10 --prompt \
+ \"pick up the red can and place it in the red bin\" --speed-scale 1.5\
+ -
+ """
 
 import argparse
 import concurrent.futures
@@ -445,6 +452,7 @@ class PiZeroOpenPIClient(Node):
             return None
 
         print(f"Sending trajectory for steps {start_idx} to {end_idx} (total {len(chunk)})")
+        #print(f"len(chunk)})")
 
         # Current arm pose
         q0 = self.latest_q.astype(np.float64).tolist()  # 7
@@ -595,7 +603,7 @@ def main():
 
     ap.add_argument("--cmd-mode", choices=["log","velocity","trajectory"], default="log",
                     help="How to consume actions each tick")
-    ap.add_argument("--gripper-action", choices=["velocity","position"], default="velocity",
+    ap.add_argument("--gripper-action", choices=["velocity","position"], default="position",
                     help="What the policy's 8th channel means")
 
     ap.add_argument("--traj-action-ns", default="/joint_trajectory_controller/follow_joint_trajectory")
@@ -604,13 +612,12 @@ def main():
     ap.add_argument("--traj-min-segment-time", type=float, default=0.10, help="Minimum time per trajectory segment (s)")
 
     ap.add_argument("--vel-scale", type=float, default=0.1, help="Scale factor for joint/gripper velocities (safety)")
-    ap.add_argument("--steps-per-infer", type=int, default=4,
+    ap.add_argument("--steps-per-infer", type=int, default=10,
                     help="How many actions to execute per inference cycle")
     ap.add_argument("--speed-scale", type=float, default=1.0,
                     help="Overall speed multiplier. <1.0 = slower, >1.0 = faster")
 
     args = ap.parse_args()
-
     rclpy.init()
     node = PiZeroOpenPIClient(
         host=args.host,
