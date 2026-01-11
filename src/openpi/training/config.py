@@ -774,13 +774,41 @@ _CONFIGS = [
         #Check again: discrete_state_input=False input is needed?
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=Gen3LiberoDataConfig(
-            repo_id="Trontour/lerobot_gen3_blue_cup_blue_bin_success",
-            # repo_id="Trontour/lerobot_gen3_blue_bin_blue_cup_failure",
+            # repo_id="aaquibtabrez/lerobot_blue_cup_blue_bin_49",
+            # repo_id="Trontour/lerobot_gen3_green_container_green_bin_success_fixed",
+            # repo_id="aaquibtabrez/lerobot_greencontainer_greenbin_150_fixed",
+            # repo_id="aaquibtabrez/lerobot_lapse_bluecup_bluebin",
+            # repo_id="aaquibtabrez/lerobot_mistake_bluecup_redbin_50",
+            # repo_id="aaquibtabrez/lerobot_composite_can_cup_success",
+            # repo_id="Trontour/lerobot_gen3_red_can_red_bin_success",
+            # repo_id="aaquibtabrez/lerobot_composite_lapse_redcan_50",
+            # repo_id="aaquibtabrez/lerobot_composit_mistake_cup_can_50",
+            # repo_id="aaquibtabrez/lerobot_greencontainer_50_redo",
+            # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_50",
+            # repo_id="aaquibtabrez/lerobot_slip_cup_50",
+            # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_redo",
+            # repo_id="aaquibtabrez/lerobot_composite_slip_cup_can",
+            # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
+            repo_id="aaquibtabrez/lerobot_composite_slip_can_redo_0105",
             base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
-                asset_id="Trontour/lerobot_gen3_blue_cup_blue_bin_success",
-                # asset_id="Trontour/lerobot_gen3_blue_cup_blue_bin",
+                # asset_id="aaquibtabrez/lerobot_slip_blue_cup_blue_bin",
+                # asset_id="aaquibtabrez/lerobot_blue_cup_blue_bin_49",
+                # asset_id="aaquibtabrez/lerobot_greencontainer_greenbin_150_fixed",
+                # asset_id="aaquibtabrez/lerobot_lapse_bluecup_bluebin",
+                # asset_id="Trontour/lerobot_gen3_red_can_red_bin_success",
+                # asset_id="aaquibtabrez/lerobot_mistake_bluecup_redbin_50",
+                # asset_id="aaquibtabrez/lerobot_composite_can_cup_success",
+                # asset_id="aaquibtabrez/lerobot_composite_lapse_redcan_50",
+                # asset_id="aaquibtabrez/lerobot_composit_mistake_cup_can_50",
+                # asset_id="aaquibtabrez/lerobot_greencontainer_50_redo",
+                # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_50",
+                # asset_id="aaquibtabrez/lerobot_slip_cup_50",
+                # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_redo",
+                # asset_id="aaquibtabrez/lerobot_composite_slip_cup_can",
+                # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
+                asset_id="aaquibtabrez/lerobot_composite_slip_can_redo_0105",
             ),
             extra_delta_transform=False,
         ),
@@ -792,7 +820,203 @@ _CONFIGS = [
         freeze_filter=pi0_config.Pi0Config(
             paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
         ).get_freeze_filter(),
-        num_train_steps=30_000,
+        num_train_steps=35_000,
+        
+        #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
+        
+        # save_interval=1_000,              # saves every 1k steps
+        keep_period=5_000,                # keeps step 5000, 10000, etc.
+        # checkpoint_base_dir="./checkpoints",
+        # overwrite=False,
+        # resume=True,                     # resume if interrupted
+    
+        # Turn off EMA for LoRA finetuning.
+        ema_decay=None,
+        wandb_enabled=True,
+    ),
+
+    TrainConfig(
+        name="pi0_gen3_slip_model",
+        project_name="openpi_lbm",
+        # Here is an example of loading a pi0 model for LoRA fine-tuning.
+        #Check again: discrete_state_input=False input is needed?
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        data=Gen3LiberoDataConfig(
+            # repo_id="aaquibtabrez/lerobot_slip_cup_50",
+            repo_id="aaquibtabrez/lerobot_composite_slip_cup_can",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
+                # asset_id="aaquibtabrez/lerobot_slip_cup_50",
+                asset_id="aaquibtabrez/lerobot_composite_slip_cup_can",
+            ),
+            extra_delta_transform=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        # The freeze filter defines which parameters should be frozen during training.
+        # We have a convenience function in the model config that returns the default freeze filter
+        # for the given model config for LoRA finetuning. Just make sure it matches the model config
+        # you chose above.
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ).get_freeze_filter(),
+        num_train_steps=25_000,
+        
+        #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
+        
+        # save_interval=1_000,              # saves every 1k steps
+        keep_period=5_000,                # keeps step 5000, 10000, etc.
+        # checkpoint_base_dir="./checkpoints",
+        # overwrite=False,
+        # resume=True,                     # resume if interrupted
+    
+        # Turn off EMA for LoRA finetuning.
+        ema_decay=None,
+        wandb_enabled=True,
+    ),
+
+    TrainConfig(
+        name="pi0_gen3_lapse_composite",
+        project_name="openpi_lbm",
+        # Here is an example of loading a pi0 model for LoRA fine-tuning.
+        #Check again: discrete_state_input=False input is needed?
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        data=Gen3LiberoDataConfig(
+            repo_id="aaquibtabrez/lerobot_composite_lapse_redcan_50",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
+                asset_id="aaquibtabrez/lerobot_composite_lapse_redcan_50",
+            ),
+            extra_delta_transform=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        # The freeze filter defines which parameters should be frozen during training.
+        # We have a convenience function in the model config that returns the default freeze filter
+        # for the given model config for LoRA finetuning. Just make sure it matches the model config
+        # you chose above.
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ).get_freeze_filter(),
+        num_train_steps=20_000,
+        
+        #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
+        
+        # save_interval=1_000,              # saves every 1k steps
+        keep_period=5_000,                # keeps step 5000, 10000, etc.
+        # checkpoint_base_dir="./checkpoints",
+        # overwrite=False,
+        # resume=True,                     # resume if interrupted
+    
+        # Turn off EMA for LoRA finetuning.
+        ema_decay=None,
+        wandb_enabled=True,
+    ),
+
+
+    TrainConfig(
+        name="pi0_gen3_mistake_composite",
+        project_name="openpi_lbm",
+        # Here is an example of loading a pi0 model for LoRA fine-tuning.
+        #Check again: discrete_state_input=False input is needed?
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        data=Gen3LiberoDataConfig(
+            repo_id="aaquibtabrez/lerobot_composit_mistake_cup_can_50",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
+                asset_id="aaquibtabrez/lerobot_composit_mistake_cup_can_50",
+            ),
+            extra_delta_transform=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        # The freeze filter defines which parameters should be frozen during training.
+        # We have a convenience function in the model config that returns the default freeze filter
+        # for the given model config for LoRA finetuning. Just make sure it matches the model config
+        # you chose above.
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ).get_freeze_filter(),
+        num_train_steps=20_000,
+        
+        #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
+        
+        # save_interval=1_000,              # saves every 1k steps
+        keep_period=5_000,                # keeps step 5000, 10000, etc.
+        # checkpoint_base_dir="./checkpoints",
+        # overwrite=False,
+        # resume=True,                     # resume if interrupted
+    
+        # Turn off EMA for LoRA finetuning.
+        ema_decay=None,
+        wandb_enabled=True,
+    ),
+
+    TrainConfig(
+        name="pi0_gen3_success_composite",
+        project_name="openpi_lbm",
+        # Here is an example of loading a pi0 model for LoRA fine-tuning.
+        #Check again: discrete_state_input=False input is needed?
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        data=Gen3LiberoDataConfig(
+            repo_id="aaquibtabrez/lerobot_composite_can_cup_success",
+            # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
+                asset_id="aaquibtabrez/lerobot_composite_can_cup_success",
+                # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
+            ),
+            extra_delta_transform=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        # The freeze filter defines which parameters should be frozen during training.
+        # We have a convenience function in the model config that returns the default freeze filter
+        # for the given model config for LoRA finetuning. Just make sure it matches the model config
+        # you chose above.
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ).get_freeze_filter(),
+        num_train_steps=20_000,
+        
+        #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
+        
+        # save_interval=1_000,              # saves every 1k steps
+        keep_period=5_000,                # keeps step 5000, 10000, etc.
+        # checkpoint_base_dir="./checkpoints",
+        # overwrite=False,
+        # resume=True,                     # resume if interrupted
+    
+        # Turn off EMA for LoRA finetuning.
+        ema_decay=None,
+        wandb_enabled=True,
+    ),
+    TrainConfig(
+        name="pi0_gen3_success_greencontainer",
+        project_name="openpi_lbm",
+        # Here is an example of loading a pi0 model for LoRA fine-tuning.
+        #Check again: discrete_state_input=False input is needed?
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        data=Gen3LiberoDataConfig(
+            repo_id="aaquibtabrez/lerobot_greencontainer_50_redo",
+            # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_50",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
+                asset_id="aaquibtabrez/lerobot_greencontainer_50_redo",
+                # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_50",
+            ),
+            extra_delta_transform=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        # The freeze filter defines which parameters should be frozen during training.
+        # We have a convenience function in the model config that returns the default freeze filter
+        # for the given model config for LoRA finetuning. Just make sure it matches the model config
+        # you chose above.
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ).get_freeze_filter(),
+        num_train_steps=20_000,
         
         #Change or use default logging and saving settings. If needed, uncomment below lines and modify.
         
