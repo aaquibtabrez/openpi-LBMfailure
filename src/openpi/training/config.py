@@ -788,8 +788,8 @@ _CONFIGS = [
             # repo_id="aaquibtabrez/lerobot_slip_cup_50",
             # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_redo",
             # repo_id="aaquibtabrez/lerobot_composite_slip_cup_can",
-            # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
-            repo_id="aaquibtabrez/lerobot_composite_slip_can_redo_0105",
+            repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
+            # repo_id="aaquibtabrez/lerobot_composite_slip_can_redo_0105",
             base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
@@ -807,8 +807,8 @@ _CONFIGS = [
                 # asset_id="aaquibtabrez/lerobot_slip_cup_50",
                 # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_redo",
                 # asset_id="aaquibtabrez/lerobot_composite_slip_cup_can",
-                # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
-                asset_id="aaquibtabrez/lerobot_composite_slip_can_redo_0105",
+                asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
+                # asset_id="aaquibtabrez/lerobot_composite_slip_can_redo_0105",
             ),
             extra_delta_transform=False,
         ),
@@ -959,13 +959,13 @@ _CONFIGS = [
         #Check again: discrete_state_input=False input is needed?
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=Gen3LiberoDataConfig(
-            repo_id="aaquibtabrez/lerobot_composite_can_cup_success",
+            # repo_id="aaquibtabrez/lerobot_composite_can_cup_success",
             # repo_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
             base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="./assets/pi0_gen3_pickupcup_low_mem_finetune",
-                asset_id="aaquibtabrez/lerobot_composite_can_cup_success",
-                # asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
+                # asset_id="aaquibtabrez/lerobot_composite_can_cup_success",
+                asset_id="aaquibtabrez/lerobot_composite_success_cup_can_container_2312",
             ),
             extra_delta_transform=False,
         ),
