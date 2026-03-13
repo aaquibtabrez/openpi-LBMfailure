@@ -33,6 +33,105 @@ A separate optional section at the end describes how to generate truncated “fa
 
 Note: The converter decodes camera topics as `sensor_msgs/msg/CompressedImage` (JPEG). It is intended for `/.../compressed` camera topics. See the script usage example header.
 
+## Python Environment Setup (LeRobot Dataset Conversion)
+
+The dataset conversion scripts require a specific Python environment with compatible versions of LeRobot and its dependencies.
+
+It is strongly recommended to create a dedicated conda environment for running the dataset conversion pipeline.
+
+### 1. Create the Environment
+
+You can name the environment anything you like. In our lab we typically call it `lerobot`.
+
+Example:
+```
+  conda create -n lerobot python=3.10 -y
+  conda activate lerobot
+```
+Python 3.10 is known to work. Python 3.11 may also work, but it has not been fully validated.
+
+
+### 2. Install Required Python Packages
+
+Install the following versions to match the dataset pipeline scripts:
+```
+  pip install datasets==2.19.*
+  pip install huggingface_hub==0.34.6
+  pip install pyarrow==14.0.2
+  pip install numpy==1.26.4
+```
+These versions are known to work with the dataset conversion scripts.
+
+
+### 3. Install the Correct Version of LeRobot
+
+The required version of LeRobot is not available through PyPI in the correct form, so it must be installed directly from the HuggingFace repository at a specific commit.
+
+Use the following commit:
+```
+  https://github.com/huggingface/lerobot/tree/0cf864870cf29f4738d3ade893e6fd13fbd7cdb5
+```
+Clone the repository and install it:
+```
+  git clone https://github.com/huggingface/lerobot.git
+  cd lerobot
+  git checkout 0cf864870cf29f4738d3ade893e6fd13fbd7cdb5
+  pip install -e .
+```
+After installation, confirm the version:
+```
+  python -c "import lerobot; print('LeRobot installed successfully')"
+```
+
+### 4. Verifying the Environment
+
+Before running any dataset conversion scripts, verify that the required packages import correctly:
+
+  python -c "import datasets, huggingface_hub, pyarrow, numpy, lerobot; print('Environment ready')"
+
+If this command runs without errors, the environment is correctly configured.
+
+
+### 5. Activating the Environment
+
+Each time you start a new terminal session to run dataset conversion, activate the environment:
+```
+  conda activate lerobot
+```
+Then run the dataset pipeline commands described later in this README.
+
+
+### Notes
+
+- Always activate the `lerobot` environment before running:
+  - `reorder_all_bags.py`
+  - `rosbag2_to_lerobot_many_prompts_with_failure.py`
+
+- If you encounter errors related to `pyarrow`, `datasets`, or `huggingface_hub`, it is almost always due to version mismatches.
+
+- The pinned versions above are known to work with the dataset pipeline used in this repository.
+
+--------------------------------------------------
+
+Optional additional clarification you may want to add directly under the "Output Location" section:
+
+### Finding the `$HF_LEROBOT_HOME` Directory
+
+LeRobot stores datasets under the environment variable `HF_LEROBOT_HOME`.
+
+If this variable is not set, it defaults to a cache directory inside your home folder.
+
+To check the path being used, run:
+```
+  python -c "from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME; print(HF_LEROBOT_HOME)"
+```
+The printed path is where the converted dataset will be written.
+
+You can also manually set the location before running the conversion:
+```
+  export HF_LEROBOT_HOME=~/lerobot_datasets
+```
+
 ## Step 1: Reorder JointState Arrays
 
 ROS does not guarantee that `JointState.name`, `JointState.position`, `JointState.velocity`, and `JointState.effort` appear in a consistent order across recordings. Before conversion, reorder all bags so the joint arrays follow a fixed order:
@@ -262,4 +361,121 @@ python3 rosbag2_to_lerobot_many_prompts_with_failure.py \
 
 This is useful for training behaviors that intentionally stop or “fail” at a specific gripper closure point.
 
-Implementation reference: `rosbag2_to_lerobot_many_prompts_with_failure.py`. 
+## Uploading the Dataset to Hugging Face
+
+Once the dataset has been generated using the dataset conversion pipeline, it can be uploaded to Hugging Face so that it can be accessed by the Pi0 training pipeline and shared with collaborators.
+
+The upload process has two parts:
+
+1. Uploading the dataset
+2. Creating a dataset version tag
+
+### 1. Log in to Hugging Face
+
+First log in using the Hugging Face CLI:
+```
+  huggingface-cli login
+```
+You will be prompted to paste your Hugging Face access token.
+
+You can generate a token here:
+```
+  https://huggingface.co/settings/tokens
+```
+Make sure the token has permission to create datasets.
+
+
+### 2. Upload the Dataset
+
+The dataset conversion script already saves the dataset in LeRobot format under the directory:
+```
+  $HF_LEROBOT_HOME/<repo_id>
+```
+For example:
+```
+  ~/lerobot_datasets/hrc2/kinova_pick_dataset
+```
+The `<repo_id>` passed to the conversion script should already follow the Hugging Face format:
+```
+  <username>/<dataset_name>
+```
+Example:
+```
+  hrc2/kinova_pick_dataset
+```
+If the dataset was created with the correct repo_id, it can be pushed to Hugging Face using the LeRobot dataset utilities.
+
+Example Python snippet:
+```
+  from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+
+  dataset = LeRobotDataset(repo_id="username/dataset_name")
+  dataset.push_to_hub()
+```
+This uploads the dataset to the Hugging Face dataset repository.
+
+Alternatively, the user can manually upload the files to huggingface, making sure to upload only the "meta" and "data" folders:
+
+1. Go the HuggingFace website and login
+2. Create a new dataset and open it
+3. Click "Files and versions"
+4. Click "Contribute"
+5. Click "Upload Files"
+6. Upload the "meta" and "data" folders from your locally saved dataset
+
+
+### 3. Create a Dataset Version Tag
+
+After the dataset is uploaded, a version tag should be created.
+
+This ensures that training pipelines can reference a stable dataset version.
+
+A helper script called `create_tag.py` is included in the same folder as this README.
+
+Run the script once after the dataset is uploaded.
+
+Example code inside `create_tag.py`:
+
+  from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+  from huggingface_hub import HfApi
+
+  hub_api = HfApi()
+  hub_api.create_tag("name/dataset_name", tag="v2.1", repo_type="dataset")
+
+Replace:
+
+  name/dataset_name
+
+with your actual Hugging Face dataset name.
+
+Example:
+
+  hrc2/kinova_pick_dataset
+
+This script should only be run once per dataset version.
+
+
+### 4. Example Workflow
+
+Typical dataset publishing workflow:
+
+1. Convert rosbag recordings into a LeRobot dataset
+2. Verify the dataset locally
+3. Push the dataset to Hugging Face
+4. Create a version tag using `create_tag.py`
+
+Example:
+
+  python3 rosbag2_to_lerobot_many_prompts_with_failure.py ...
+
+  python create_tag.py
+
+After this step, the dataset will appear on Hugging Face and can be referenced by version.
+
+
+### Notes
+
+- Version tags allow training pipelines to use stable dataset snapshots.
+- Do not overwrite existing tags unless you intentionally want to change the dataset version.
+- Always bump the tag version (for example v2.0 → v2.1) when publishing an updated dataset.
+- Only run the `create_tag.py` script once per dataset release.
