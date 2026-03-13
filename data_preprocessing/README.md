@@ -86,9 +86,9 @@ After installation, confirm the version:
 ### 4. Verifying the Environment
 
 Before running any dataset conversion scripts, verify that the required packages import correctly:
-
+```
   python -c "import datasets, huggingface_hub, pyarrow, numpy, lerobot; print('Environment ready')"
-
+```
 If this command runs without errors, the environment is correctly configured.
 
 
@@ -110,27 +110,6 @@ Then run the dataset pipeline commands described later in this README.
 - If you encounter errors related to `pyarrow`, `datasets`, or `huggingface_hub`, it is almost always due to version mismatches.
 
 - The pinned versions above are known to work with the dataset pipeline used in this repository.
-
---------------------------------------------------
-
-Optional additional clarification you may want to add directly under the "Output Location" section:
-
-### Finding the `$HF_LEROBOT_HOME` Directory
-
-LeRobot stores datasets under the environment variable `HF_LEROBOT_HOME`.
-
-If this variable is not set, it defaults to a cache directory inside your home folder.
-
-To check the path being used, run:
-```
-  python -c "from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME; print(HF_LEROBOT_HOME)"
-```
-The printed path is where the converted dataset will be written.
-
-You can also manually set the location before running the conversion:
-```
-  export HF_LEROBOT_HOME=~/lerobot_datasets
-```
 
 ## Step 1: Reorder JointState Arrays
 
@@ -296,7 +275,24 @@ The dataset is written to:
 
 `$HF_LEROBOT_HOME/<repo_id>`
 
-`HF_LEROBOT_HOME` is the LeRobot cache root used by OpenPI. //NOTE: CLARIFY HOW TO FIND THIS PATH
+`HF_LEROBOT_HOME` is the LeRobot cache root used by OpenPI. 
+
+### Finding the `$HF_LEROBOT_HOME` Directory
+
+LeRobot stores datasets under the environment variable `HF_LEROBOT_HOME`.
+
+If this variable is not set, it defaults to a cache directory inside your home folder.
+
+To check the path being used, run:
+```
+  python -c "from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME; print(HF_LEROBOT_HOME)"
+```
+The printed path is where the converted dataset will be written.
+
+You can also manually set the location before running the conversion:
+```
+  export HF_LEROBOT_HOME=~/lerobot_datasets
+```
 
 
 ### Notes and Assumptions
@@ -435,23 +431,23 @@ A helper script called `create_tag.py` is included in the same folder as this RE
 Run the script once after the dataset is uploaded.
 
 Example code inside `create_tag.py`:
-
+```
   from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
   from huggingface_hub import HfApi
 
   hub_api = HfApi()
   hub_api.create_tag("name/dataset_name", tag="v2.1", repo_type="dataset")
-
+```
 Replace:
-
+```
   name/dataset_name
-
+```
 with your actual Hugging Face dataset name.
 
 Example:
-
+```
   hrc2/kinova_pick_dataset
-
+```
 This script should only be run once per dataset version.
 
 
@@ -465,11 +461,11 @@ Typical dataset publishing workflow:
 4. Create a version tag using `create_tag.py`
 
 Example:
-
+```
   python3 rosbag2_to_lerobot_many_prompts_with_failure.py ...
 
   python create_tag.py
-
+```
 After this step, the dataset will appear on Hugging Face and can be referenced by version.
 
 
