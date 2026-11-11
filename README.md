@@ -123,13 +123,13 @@ We provide detailed step-by-step examples for running inference of our pre-train
 
 ## Training on the Kinova Gen3 (LBM failure project)
 
-This fork fine-tunes $\pi_{0.5}$ (LoRA) on a Kinova Gen3 arm with a Robotiq gripper, using teleoperated success and failure demonstrations. Robot setup, data collection and the user study are covered in the project handover doc, not here. Training follows the standard openpi process below, with Gen3-specific files.
+This fork fine-tunes $\pi_{0.5}$ (LoRA) on a Kinova Gen3 arm with a Robotiq gripper, using teleoperated success and failure demonstrations. Training follows the standard openpi process below, with Gen3-specific files.
 
 **Note:** the config names start with `pi0_` for historical reasons, but they train $\pi_{0.5}$ (`pi05=True`, initialized from `pi05_base`).
 
 ### 1. Data
 
-Demonstrations are recorded as rosbags, converted to LeRobot datasets with language prompts, and uploaded to [Hugging Face](https://huggingface.co/aaquibtabrez/datasets) (openly accessible). The conversion and upload steps are in [`data_preprocessing/README.md`](data_preprocessing/README.md). Raw rosbags are kept on the lab Vault drive at `/media/aaquib/Vault/failure_tri/data_collection`.
+Demonstrations are recorded as rosbags, converted to LeRobot datasets with language prompts, and uploaded to [Hugging Face](https://huggingface.co/aaquibtabrez/datasets) (openly accessible). The conversion and upload steps are in [`data_preprocessing/README.md`](data_preprocessing/README.md).
 
 Each frame has a base camera image, a wrist camera image, 7 joint positions and the gripper position. Actions are 8D: 7 joint velocities and the absolute gripper position.
 
@@ -137,7 +137,7 @@ Each frame has a base camera image, a wrist camera image, 7 joint positions and 
 
 - [`src/openpi/policies/policy_gen3.py`](src/openpi/policies/policy_gen3.py): maps the Gen3 observations and actions to the model's inputs and outputs. Used for both training and inference.
 - [`Gen3LiberoDataConfig`](src/openpi/training/config.py): sets up the data pipeline for Gen3 datasets. It does not need to change between runs.
-- [`TrainConfig`](src/openpi/training/config.py): one entry per model. The main one is `pi0_gen3_pickupcup_low_mem_finetune`. There are also `pi0_gen3_slip_model`, `pi0_gen3_lapse_composite`, `pi0_gen3_mistake_composite`, `pi0_gen3_success_composite` and `pi0_gen3_success_greencontainer`.
+- [`TrainConfig`](src/openpi/training/config.py): one entry per model. The main one is `pi0_gen3_pickupcup_low_mem_finetune`. The other `pi0_gen3_*` configs are tailored to the specific conditions of our user study.
 
 What to change in a `TrainConfig` for a new run:
 
@@ -158,9 +158,7 @@ XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi0_gen3_pickupcup_lo
 
 Use `--resume` instead of `--overwrite` to continue an interrupted run. Checkpoints are saved to `checkpoints/<config_name>/<run_name>/<step>`.
 
-Training is logged to the shared Weights & Biases project: https://forge.coreweave.com/wandb/aaquibtabrez/openpi_lbm
-
-Existing checkpoints are stored on the lab Vault drive at `/media/aaquib/Vault/failure_tri/repo_checkpoint/pi_ws/openpi-LBMfailure/checkpoints/pi0_gen3_pickupcup_low_mem_finetune`, and on the lab 5090 GPU machine under `pi_ws/openpi-LBMfailure/checkpoints/pi0_gen3_pickupcup_low_mem_finetune` (conda env `openpi`). See the handover doc for access.
+Training progress is logged to Weights & Biases (project `openpi_lbm`, set by `project_name` in the config).
 
 ### 4. Run a trained model
 
