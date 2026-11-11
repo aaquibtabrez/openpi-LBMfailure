@@ -36,7 +36,7 @@ The repo has been tested with Ubuntu 22.04, we do not currently support other op
 When cloning this repo, make sure to update submodules:
 
 ```bash
-git clone --recurse-submodules git@github.com:Physical-Intelligence/openpi.git
+git clone --recurse-submodules git@github.com:aaquibtabrez/openpi-LBMfailure.git
 
 # Or if you already cloned the repo:
 git submodule update --init --recursive
@@ -120,6 +120,59 @@ We provide detailed step-by-step examples for running inference of our pre-train
 
 
 
+
+## Training on the Kinova Gen3 (LBM failure project)
+
+This fork fine-tunes $\pi_{0.5}$ (LoRA) on a Kinova Gen3 arm with a Robotiq gripper, using teleoperated success and failure demonstrations. Robot setup, data collection and the user study are covered in the project handover doc, not here. Training follows the standard openpi process below, with Gen3-specific files.
+
+**Note:** the config names start with `pi0_` for historical reasons, but they train $\pi_{0.5}$ (`pi05=True`, initialized from `pi05_base`).
+
+### 1. Data
+
+Demonstrations are recorded as rosbags, converted to LeRobot datasets with language prompts, and uploaded to [Hugging Face](https://huggingface.co/aaquibtabrez/datasets) (openly accessible). The conversion and upload steps are in [`data_preprocessing/README.md`](data_preprocessing/README.md). Raw rosbags are kept on the lab Vault drive at `/media/aaquib/Vault/failure_tri/data_collection`.
+
+Each frame has a base camera image, a wrist camera image, 7 joint positions and the gripper position. Actions are 8D: 7 joint velocities and the absolute gripper position.
+
+### 2. Gen3 files
+
+- [`src/openpi/policies/policy_gen3.py`](src/openpi/policies/policy_gen3.py): maps the Gen3 observations and actions to the model's inputs and outputs. Used for both training and inference.
+- [`Gen3LiberoDataConfig`](src/openpi/training/config.py): sets up the data pipeline for Gen3 datasets. It does not need to change between runs.
+- [`TrainConfig`](src/openpi/training/config.py): one entry per model. The main one is `pi0_gen3_pickupcup_low_mem_finetune`. There are also `pi0_gen3_slip_model`, `pi0_gen3_lapse_composite`, `pi0_gen3_mistake_composite`, `pi0_gen3_success_composite` and `pi0_gen3_success_greencontainer`.
+
+What to change in a `TrainConfig` for a new run:
+
+- `repo_id` and `asset_id`: the Hugging Face dataset to train on (keep the two the same).
+- `assets_dir`: where the normalization stats are stored (`./assets/pi0_gen3_pickupcup_low_mem_finetune`).
+- `freeze_filter`: which parameters are trained (the default trains the LoRA weights only).
+- `num_train_steps`, `save_interval`, `keep_period`: how long to train and how often checkpoints are saved and kept.
+
+### 3. Train
+
+Compute normalization stats for the dataset, then start training:
+
+```bash
+uv run scripts/compute_norm_stats.py --config-name pi0_gen3_pickupcup_low_mem_finetune
+
+XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi0_gen3_pickupcup_low_mem_finetune --exp-name=<run_name> --overwrite
+```
+
+Use `--resume` instead of `--overwrite` to continue an interrupted run. Checkpoints are saved to `checkpoints/<config_name>/<run_name>/<step>`.
+
+Training is logged to the shared Weights & Biases project: https://forge.coreweave.com/wandb/aaquibtabrez/openpi_lbm
+
+Existing checkpoints are stored on the lab Vault drive at `/media/aaquib/Vault/failure_tri/repo_checkpoint/pi_ws/openpi-LBMfailure/checkpoints/pi0_gen3_pickupcup_low_mem_finetune`, and on the lab 5090 GPU machine under `pi_ws/openpi-LBMfailure/checkpoints/pi0_gen3_pickupcup_low_mem_finetune` (conda env `openpi`). See the handover doc for access.
+
+### 4. Run a trained model
+
+Start the policy server on the GPU machine:
+
+```bash
+uv run scripts/serve_policy_gen3.py --env GEN3 --port 8000 policy:checkpoint \
+    --policy.config=pi0_gen3_pickupcup_low_mem_finetune \
+    --policy.dir=checkpoints/pi0_gen3_pickupcup_low_mem_finetune/<run_name>/<step>
+```
+
+On the robot computer, [`scripts/inferenceloopRTC.py`](scripts/inferenceloopRTC.py) streams camera images and joint states to the server and sends the returned actions to the arm (see `--help` for options). [`scripts/single_obs_gen3.py`](scripts/single_obs_gen3.py) tests the server with a single pair of images.
 
 ## Fine-Tuning Base Models on Your Own Data
 
