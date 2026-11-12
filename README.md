@@ -129,7 +129,7 @@ This fork fine-tunes $\pi_{0.5}$ (LoRA) on a Kinova Gen3 arm with a Robotiq grip
 
 ### 1. Data
 
-Demonstrations are recorded as rosbags, converted to LeRobot datasets with language prompts, and uploaded to [Hugging Face](https://huggingface.co/aaquibtabrez/datasets) (openly accessible). The conversion and upload steps are in [`data_preprocessing/README.md`](data_preprocessing/README.md).
+Demonstrations are recorded as rosbags and converted to LeRobot datasets with language prompts. The conversion steps are in [`data_preprocessing/README.md`](data_preprocessing/README.md).
 
 Each frame has a base camera image, a wrist camera image, 7 joint positions and the gripper position. Actions are 8D: 7 joint velocities and the absolute gripper position.
 
@@ -141,7 +141,7 @@ Each frame has a base camera image, a wrist camera image, 7 joint positions and 
 
 What to change in a `TrainConfig` for a new run:
 
-- `repo_id` and `asset_id`: the Hugging Face dataset to train on (keep the two the same).
+- `repo_id` and `asset_id`: the LeRobot dataset to train on (keep the two the same).
 - `assets_dir`: where the normalization stats are stored (`./assets/pi0_gen3_pickupcup_low_mem_finetune`).
 - `freeze_filter`: which parameters are trained (the default trains the LoRA weights only).
 - `num_train_steps`, `save_interval`, `keep_period`: how long to train and how often checkpoints are saved and kept.
@@ -158,7 +158,7 @@ XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi0_gen3_pickupcup_lo
 
 Use `--resume` instead of `--overwrite` to continue an interrupted run. Checkpoints are saved to `checkpoints/<config_name>/<run_name>/<step>`.
 
-Training progress is logged to Weights & Biases (project `openpi_lbm`, set by `project_name` in the config).
+Training progress is logged to Weights & Biases.
 
 ### 4. Run a trained model
 
